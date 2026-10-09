@@ -195,6 +195,14 @@ main{flex:1; display:flex; flex-direction:column; align-items:center}
 .disclaimer a{color:var(--teal-500)}
 .footer-meta{margin-top:12px; font-size:11.5px; color:var(--ink-400)}
 
+
+.feedback{display:flex; align-items:center; gap:6px; margin-top:10px; padding-top:8px; border-top:1px dashed var(--line); font-size:11.5px; color:var(--ink-400)}
+.fb-btn{border:1px solid var(--line); background:var(--bg-card-solid); border-radius:8px; padding:3px 9px; cursor:pointer; font-size:14px; line-height:1.4; transition:transform .15s ease}
+.fb-btn:hover:not(:disabled){transform:translateY(-1px)}
+.fb-btn:disabled{cursor:default; opacity:.45}
+.fb-btn.picked{opacity:1; border-color:var(--teal-500); background:var(--teal-100)}
+.fb-thanks{color:var(--teal-500); font-weight:600}
+
 button:focus-visible,textarea:focus-visible{outline:2px solid var(--teal-500); outline-offset:2px}
 @media (max-width:560px){
   .chat-card{height:70vh; border-radius:16px}
@@ -251,15 +259,7 @@ button:focus-visible,textarea:focus-visible{outline:2px solid var(--teal-500); o
         <button class="clear-btn" id="clearBtn">مسح المحادثة</button>
       </div>
 
-      <div class="messages" id="messages" role="log" aria-live="polite">
-        <div class="msg bot">
-          <div class="avatar">SGU</div>
-          <div class="bubble">
-            <p>أهلاً بيك! أنا المرشد الأكاديمي لكلية الحاسبات والمعلومات - جامعة الصالحية الجديدة. اسألني عن التخصصات، المقررات والمتطلبات السابقة، الخطة الدراسية، فرص العمل، أو الخدمات الطلابية.</p>
-            <span class="src-tag">المصدر: دليل الطالب 2024-2025</span>
-          </div>
-        </div>
-      </div>
+      <div class="messages" id="messages" role="log" aria-live="polite"></div>
 
       <div class="quick-replies" id="quickReplies">
         <button class="quick-chip" type="button">إيه التخصصات المتاحة في الكلية؟</button>
@@ -281,26 +281,39 @@ button:focus-visible,textarea:focus-visible{outline:2px solid var(--teal-500); o
 <footer class="site-footer">
   <div class="disclaimer">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-    <p><strong>تنبيه:</strong> المعلومات هنا استرشادية ومأخوذة من دليل الطالب، وقد تتغير الجداول واللوائح. للتأكد من أي قرار أكاديمي (تسجيل، حذف، إضافة) راجع المرشد الأكاديمي أو شئون الطلاب، أو تواصل على <strong dir="ltr">01557750450 - 01557750650</strong> أو <a href="https://sgu.edu.eg" target="_blank" rel="noopener">sgu.edu.eg</a>.</p>
+    <p><strong>تنبيه:</strong> المعلومات هنا استرشادية ومأخوذة من دليل الطالب، وقد تتغير الجداول واللوائح. المحادثات بتتسجل لتحسين الخدمة، فمتكتبش بيانات شخصية (رقم قومي، كلمات سر، أرقام حسابات). للتأكد من أي قرار أكاديمي (تسجيل، حذف، إضافة) راجع المرشد الأكاديمي أو شئون الطلاب، أو تواصل على <strong dir="ltr">01557750450 - 01557750650</strong> أو <a href="https://sgu.edu.eg" target="_blank" rel="noopener">sgu.edu.eg</a>.</p>
   </div>
   <p class="footer-meta">كلية الحاسبات والمعلومات - جامعة الصالحية الجديدة · دليل الطالب 2024-2025</p>
 </footer>
 
 <script>
-/* ===== الإعدادات: ضع رابط الـ webhook بتاع n8n هنا ===== */
-const N8N_WEBHOOK_URL = "YOUR_N8N_WEBHOOK_URL";
+/* ===== الإعدادات ===== */
+const N8N_WEBHOOK_URL   = "https://saleh11666.app.n8n.cloud/webhook/sgu-chat";    // Production URL بتاع /webhook/sgu-chat
+const N8N_FEEDBACK_URL  = "https://saleh11666.app.n8n.cloud/webhook/sgu-feedback";   // Production URL بتاع /webhook/sgu-feedback
+const API_KEY = "";                                  // نفس القيمة اللي في node الـ Guard (سيبها فاضية لو مش مفعّل)
 const REQUEST_TIMEOUT_MS = 40000;
+const MAX_SAVED = 60;
+
+const isPlaceholder = u => !u || u.startsWith('YOUR_');
+const authHeaders = () => Object.assign({ 'Content-Type': 'application/json' }, API_KEY ? { 'x-api-key': API_KEY } : {});
+
+/* ===== تخزين آمن في المتصفح ===== */
+const store = {
+  get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k,v); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
 
 /* ===== الوضع الليلي ===== */
 const root = document.documentElement;
-try { const t = localStorage.getItem('sgu-chat-theme'); if (t) root.setAttribute('data-theme', t); } catch(e){}
+{ const t = store.get('sgu-chat-theme'); if (t) root.setAttribute('data-theme', t); }
 document.getElementById('themeToggle').addEventListener('click', () => {
   const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   root.setAttribute('data-theme', next);
-  try { localStorage.setItem('sgu-chat-theme', next); } catch(e){}
+  store.set('sgu-chat-theme', next);
 });
 
-/* ===== ميلان 3D خفيف للكارت ===== */
+/* ===== ميلان 3D ===== */
 const chatCard = document.getElementById('chatCard');
 if (!matchMedia('(pointer: coarse)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
   const MAX = 3.5;
@@ -324,10 +337,8 @@ inputEl.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 
-/* ===== Markdown خفيف: bold + قوائم + code ===== */
-function inlineMd(s){
-  return s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`(.+?)`/g,'<code>$1</code>');
-}
+/* ===== Markdown خفيف ===== */
+function inlineMd(s){ return s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`(.+?)`/g,'<code>$1</code>'); }
 function renderMarkdown(text){
   const lines = String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').split('\n');
   let html = '', inList = false;
@@ -344,27 +355,86 @@ function renderMarkdown(text){
   if (inList) html += '</ul>';
   return html || '<p></p>';
 }
-
 function scrollToBottom(){ messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' }); }
 
-function appendMessage(role, text, sourceTag){
+/* ===== الجلسة وسجل المحادثة (بيفضل بعد الريفريش) ===== */
+function newSessionId(){ return 'sess_' + Math.random().toString(36).slice(2) + Date.now(); }
+function getSessionId(){
+  let id = store.get('sgu-chat-session');
+  if (!id) { id = newSessionId(); store.set('sgu-chat-session', id); }
+  return id;
+}
+let history = [];
+try { history = JSON.parse(store.get('sgu-chat-history') || '[]'); } catch(e){ history = []; }
+if (!Array.isArray(history)) history = [];
+function saveHistory(){ history = history.slice(-MAX_SAVED); store.set('sgu-chat-history', JSON.stringify(history)); }
+
+const WELCOME = 'أهلاً بيك! أنا المرشد الأكاديمي لكلية الحاسبات والمعلومات - جامعة الصالحية الجديدة. اسألني عن التخصصات، المقررات والمتطلبات السابقة، الخطة الدراسية، فرص العمل، أو الخدمات الطلابية.';
+function showWelcome(){ renderMessage({ role:'bot', text: WELCOME, source:'المصدر: دليل الطالب 2024-2025' }, false); }
+
+/* ===== رسم الرسائل ===== */
+function renderMessage(m, withFeedback = true){
   const w = document.createElement('div');
-  w.className = `msg ${role}`;
+  w.className = `msg ${m.role}`;
   const av = document.createElement('div');
   av.className = 'avatar';
-  av.textContent = role === 'bot' ? 'SGU' : 'أنت';
+  av.textContent = m.role === 'bot' ? 'SGU' : 'أنت';
   const b = document.createElement('div');
   b.className = 'bubble';
-  b.innerHTML = renderMarkdown(text);
-  if (sourceTag) {
+  b.innerHTML = renderMarkdown(m.text);
+  if (m.source) {
     const s = document.createElement('span');
     s.className = 'src-tag';
-    s.textContent = sourceTag;
+    s.textContent = m.source;
     b.appendChild(s);
   }
+  if (m.role === 'bot' && withFeedback && m.id) b.appendChild(buildFeedback(m));
   w.append(av, b);
   messagesEl.appendChild(w);
   scrollToBottom();
+}
+
+function buildFeedback(m){
+  const row = document.createElement('div');
+  row.className = 'feedback';
+  const label = document.createElement('span');
+  label.textContent = 'الرد ده مفيد؟';
+  const up = document.createElement('button');
+  const down = document.createElement('button');
+  up.type = down.type = 'button';
+  up.className = down.className = 'fb-btn';
+  up.textContent = '👍'; down.textContent = '👎';
+  up.setAttribute('aria-label', 'مفيد'); down.setAttribute('aria-label', 'غير مفيد');
+  row.append(label, up, down);
+
+  const lock = rating => {
+    up.disabled = down.disabled = true;
+    (rating === 'up' ? up : down).classList.add('picked');
+    label.textContent = 'شكراً على رأيك';
+    label.className = 'fb-thanks';
+  };
+  if (m.rating) lock(m.rating);
+
+  const rate = rating => {
+    if (m.rating) return;
+    m.rating = rating;
+    saveHistory();
+    lock(rating);
+    sendFeedback(m, rating);
+  };
+  up.addEventListener('click', () => rate('up'));
+  down.addEventListener('click', () => rate('down'));
+  return row;
+}
+
+async function sendFeedback(m, rating){
+  if (isPlaceholder(N8N_FEEDBACK_URL)) return;
+  try {
+    await fetch(N8N_FEEDBACK_URL, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ messageId: m.id, sessionId: getSessionId(), rating, question: m.question || '', answer: m.text })
+    });
+  } catch(e){ console.warn('feedback failed', e); }
 }
 
 let typingEl = null;
@@ -385,43 +455,33 @@ function showError(t){
 }
 
 /* ===== n8n Webhook =====
-   الطلب:  POST { message, sessionId, timestamp }
-   الرد:   { reply: "...", source?: "..." }  (بيقبل كمان output / text / message) */
-function getSessionId(){
-  try {
-    let id = sessionStorage.getItem('sgu-chat-session');
-    if (!id) { id = 'sess_' + Math.random().toString(36).slice(2) + Date.now(); sessionStorage.setItem('sgu-chat-session', id); }
-    return id;
-  } catch(e) { return 'sess_' + Date.now(); }
-}
-
+   الطلب: POST { message, sessionId, timestamp }
+   الرد:  { reply, messageId } */
 function normalize(data){
-  if (typeof data === 'string') return { text: data, source: null };
+  if (typeof data === 'string') return { text: data, id: null };
   const p = Array.isArray(data) ? data[0] : data;
   return {
     text: p?.reply ?? p?.output ?? p?.text ?? p?.message ?? 'مفيش رد من المساعد.',
-    source: p?.source ?? p?.citation ?? null
+    id: p?.messageId ? String(p.messageId) : null
   };
 }
-
 async function callWebhook(message){
-  if (!N8N_WEBHOOK_URL || N8N_WEBHOOK_URL === 'YOUR_N8N_WEBHOOK_URL') {
+  if (isPlaceholder(N8N_WEBHOOK_URL)) {
     await new Promise(r => setTimeout(r, 900));
-    return { text: '**وضع تجريبي:** حط رابط الـ webhook بتاع n8n في المتغير `N8N_WEBHOOK_URL` عشان تاخد ردود حقيقية.', source: 'رد تجريبي' };
+    return { text: '**وضع تجريبي:** حط رابط الـ webhook بتاع n8n في المتغير `N8N_WEBHOOK_URL` عشان تاخد ردود حقيقية.', id: 'demo_' + Date.now() };
   }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
     const res = await fetch(N8N_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ message, sessionId: getSessionId(), timestamp: new Date().toISOString() }),
       signal: ctrl.signal
     });
     if (!res.ok) throw new Error('status ' + res.status);
     const raw = await res.text();
-    if (!raw.trim()) return { text: 'الـ webhook رجّع رد فاضي. راجع مخرجات الـ workflow في n8n.', source: null };
-    try { return normalize(JSON.parse(raw)); } catch { return { text: raw, source: null }; }
+    if (!raw.trim()) return { text: 'الـ webhook رجّع رد فاضي. راجع مخرجات الـ workflow في n8n.', id: null };
+    try { return normalize(JSON.parse(raw)); } catch { return { text: raw, id: null }; }
   } finally { clearTimeout(timer); }
 }
 
@@ -430,13 +490,17 @@ function setBusy(b){ sendBtn.disabled = b; inputEl.disabled = b; if (!b) inputEl
 async function sendMessage(preset){
   const text = (preset ?? inputEl.value).trim();
   if (!text || sendBtn.disabled) return;
-  appendMessage('user', text);
+  const um = { role:'user', text };
+  history.push(um); saveHistory();
+  renderMessage(um);
   inputEl.value = ''; inputEl.style.height = 'auto';
   setBusy(true); showTyping();
   try {
     const r = await callWebhook(text);
     hideTyping();
-    appendMessage('bot', r.text, r.source);
+    const bm = { role:'bot', text: r.text, id: r.id, question: text };
+    history.push(bm); saveHistory();
+    renderMessage(bm);
   } catch (err) {
     hideTyping();
     console.error(err);
@@ -446,15 +510,20 @@ async function sendMessage(preset){
   } finally { setBusy(false); }
 }
 
+/* ===== التشغيل ===== */
 sendBtn.addEventListener('click', () => sendMessage());
 document.getElementById('clearBtn').addEventListener('click', () => {
+  history = []; store.del('sgu-chat-history');
+  store.set('sgu-chat-session', newSessionId());   // جلسة جديدة = ذاكرة جديدة في n8n
   messagesEl.innerHTML = '';
-  appendMessage('bot', 'اتمسحت المحادثة. اسألني أي سؤال عن كلية الحاسبات والمعلومات.');
+  showWelcome();
 });
 document.getElementById('quickReplies').addEventListener('click', e => {
   const btn = e.target.closest('.quick-chip');
   if (btn) sendMessage(btn.textContent);
 });
+
+if (history.length) history.forEach(m => renderMessage(m)); else showWelcome();
 </script>
 </body>
 </html>
